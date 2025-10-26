@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 import { mainNav } from "@/config/nav";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const UniversalConnect = dynamic(() => import("@/components/wallet/UniversalConnect"), { ssr: false });
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -42,6 +45,8 @@ export default function Navbar() {
           })}
         </nav>
         <div className="ml-auto flex items-center gap-2 md:ml-auto">
+          {/* Universal connect */}
+          <UniversalConnect />
           {/* Theme toggle */}
           {mounted && (
             <button
