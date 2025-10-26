@@ -4,22 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { routes } from "@/lib/routes";
-
-const navItems = [
-  { href: routes.home, label: "Home" },
-  { href: routes.wallet, label: "Wallet" },
-  { href: routes.swap, label: "Swap" },
-  { href: routes.staking, label: "Staking" },
-  { href: routes.products.qr, label: "QR" },
-  { href: routes.token.marketplace, label: "Marketplace" },
-  { href: routes.merchants, label: "Merchants" },
-  { href: routes.developers.home, label: "Developers" },
-];
+import { mainNav } from "@/config/nav";
+import { useTheme } from "next-themes";
+import { Moon, Sun } from "lucide-react";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const mounted = typeof window !== "undefined";
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -31,7 +24,7 @@ export default function Navbar() {
           MyXenPay
         </Link>
         <nav className="-mx-2 hidden items-center gap-1 overflow-x-auto md:flex">
-          {navItems.map((item) => {
+          {mainNav.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
@@ -49,7 +42,17 @@ export default function Navbar() {
           })}
         </nav>
         <div className="ml-auto flex items-center gap-2 md:ml-auto">
-          {/* Placeholder for future global actions (theme toggle, etc.) */}
+          {/* Theme toggle */}
+          {mounted && (
+            <button
+              type="button"
+              aria-label="Toggle theme"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-900"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+           >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          )}
         </div>
         <button
           className="ml-auto inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm md:hidden"
@@ -64,7 +67,7 @@ export default function Navbar() {
       {open && (
         <div className="border-b bg-white/95 py-2 dark:bg-black/95 md:hidden">
           <nav className="site-container flex flex-col">
-            {navItems.map((item) => {
+            {mainNav.map((item) => {
               const active = isActive(item.href);
               return (
                 <Link
