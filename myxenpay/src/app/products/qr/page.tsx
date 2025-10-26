@@ -3,69 +3,32 @@
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import Image from "next/image";
-
-type Currency = "USD" | "SOL" | "USDC" | "MYXN";
+import { Currency, Rates, getRates, toUSD, calculateFeesWithRates } from "@/lib/fee-calculation";
 type Chain = "solana" | "evm";
 
-function usePrices() {
-    const [prices, setPrices] = useState<Record<string, number>>({ USD: 1, USDC: 1 });
+function useRatesState() {
+    const [rates, setRates] = useState<Rates>({ USD: 1, USDC: 1, SOL: 0, MYXN: 0, ETH: 0 });
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
     useEffect(() => {
-        const controller = new AbortController();
+        let mounted = true;
         async function run() {
-            try {
-                setLoading(true);
-                setError(null);
-                const sol = await fetch(
-                    "https://api.coingecko.com/api/v3/simple/price?ids=solana,ethereum&vs_currencies=usd",
-                    { signal: controller.signal }
-                ).then((r) => r.json());
-
-                const myxnId = process.env.NEXT_PUBLIC_CG_ID_MYXN;
-                let myxn = 0;
-                if (myxnId) {
-                    try {
-                        const data = await fetch(
-                            `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(myxnId)}&vs_currencies=usd`,
-                            { signal: controller.signal }
-                        ).then((r) => r.json());
-                        myxn = data?.[myxnId]?.usd ?? 0;
-                    } catch {}
-                } else {
-                    const fallback = Number(process.env.NEXT_PUBLIC_MYXN_PRICE_USD || 0);
-                    myxn = Number.isFinite(fallback) ? fallback : 0;
-                }
-
-                setPrices({ USD: 1, USDC: 1, SOL: sol?.solana?.usd ?? 0, ETH: sol?.ethereum?.usd ?? 0, MYXN: myxn });
-                    } catch {
-                setError("Failed to fetch prices");
-            } finally {
-                setLoading(false);
-            }
+            setLoading(true);
+            const r = await getRates();
+            if (mounted) setRates(r);
+            setLoading(false);
         }
         run();
         const t = setInterval(run, 60_000);
         return () => {
-            controller.abort();
+            mounted = false;
             clearInterval(t);
         };
     }, []);
-
-    return { prices, loading, error };
-}
-
-function usdFrom(amount: number, currency: Currency, prices: Record<string, number>): number {
-    if (!amount || amount <= 0) return 0;
-    if (currency === "USD") return amount;
-    const price = prices[currency] || 0;
-    if (price <= 0) return 0;
-    return amount * price;
+    return { rates, loading };
 }
 
 export default function QRGenerator() {
-    const { prices, loading } = usePrices();
+    const { rates, loading } = useRatesState();
     const [chain, setChain] = useState<Chain>("solana");
     const [currency, setCurrency] = useState<Currency>("USD");
     const [amount, setAmount] = useState<string>("");
@@ -74,13 +37,8 @@ export default function QRGenerator() {
     const [copied, setCopied] = useState(false);
 
     const amountNum = Number(amount) || 0;
-    const amountUSD = useMemo(() => usdFrom(amountNum, currency, prices), [amountNum, currency, prices]);
-    const fees = useMemo(() => {
-        const platform = amountUSD * 0.0001;
-        const tx = amountUSD * 0.0006;
-        const total = platform + tx;
-        return { platform, tx, total };
-    }, [amountUSD]);
+    const amountUSD = useMemo(() => toUSD(amountNum, currency, rates), [amountNum, currency, rates]);
+    const fees = useMemo(() => calculateFeesWithRates(amountNum, currency, rates), [amountNum, currency, rates]);
 
     // Build payment link
     useEffect(() => {
@@ -92,7 +50,7 @@ export default function QRGenerator() {
                 const recipient = process.env.NEXT_PUBLIC_SOLANA_RECIPIENT || "8uR9i2Fi1xJcimZ8hQ2o8W1g2o8tqv7C5L4w7n8v9xYz"; // demo pubkey
                 let url = `solana:${recipient}?label=${label}&message=${message}`;
                 // Convert USD to SOL amount if needed
-                const amountSOL = prices.SOL > 0 ? amountUSD / prices.SOL : 0;
+                const amountSOL = rates.SOL > 0 ? amountUSD / rates.SOL : 0;
                 if (amountSOL > 0) url += `&amount=${amountSOL.toFixed(6)}`;
                 setLink(url);
                 try {
@@ -107,7 +65,7 @@ export default function QRGenerator() {
             // EVM EIP-681 native transfer (ETH on specified chain)
             const recipient = process.env.NEXT_PUBLIC_EVM_RECIPIENT || "0x0000000000000000000000000000000000000000";
             const chainId = Number(process.env.NEXT_PUBLIC_EVM_CHAIN_ID || 1);
-            const priceETH = prices.ETH || 0;
+            const priceETH = rates.ETH || 0;
             const amountETH = priceETH > 0 ? amountUSD / priceETH : 0;
             const wei = BigInt(Math.floor(amountETH * 1e18));
             const valueHex = `0x${wei.toString(16)}`;
@@ -121,7 +79,7 @@ export default function QRGenerator() {
             }
         }
         build();
-    }, [chain, amountUSD, prices]);
+    }, [chain, amountUSD, rates]);
 
     const formatUSD = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 6 }).format(n || 0);
 
@@ -179,15 +137,15 @@ export default function QRGenerator() {
                     <div className="grid grid-cols-3 gap-2 text-sm">
                         <div>
                             <div className="text-gray-600 dark:text-gray-400">Platform</div>
-                            <div className="font-semibold">{formatUSD(fees.platform)}</div>
+                            <div className="font-semibold">{formatUSD(fees.usd.platformFee)}</div>
                         </div>
                         <div>
                             <div className="text-gray-600 dark:text-gray-400">Tx</div>
-                            <div className="font-semibold">{formatUSD(fees.tx)}</div>
+                            <div className="font-semibold">{formatUSD(fees.usd.transactionFee)}</div>
                         </div>
                         <div>
                             <div className="text-gray-600 dark:text-gray-400">Total</div>
-                            <div className="font-semibold">{formatUSD(fees.total)}</div>
+                            <div className="font-semibold">{formatUSD(fees.usd.totalFee)}</div>
                         </div>
                     </div>
                 </div>

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
+import { calculateFeesWithRates } from "@/lib/fee-calculation";
 
 // Existing connect components
 import ConnectEth from "@/components/eth/ConnectEth";
@@ -19,11 +20,13 @@ export default function CheckoutWidget() {
     return Number.isFinite(n) && n > 0 ? n : 0;
   }, [amount]);
 
-  // 0.07% total = 0.01% platform + 0.06% transaction
+  // 0.07% total = 0.01% platform + 0.06% transaction (USD)
   const fees = useMemo(() => {
-    const platform = parsed * 0.0001;
-    const tx = parsed * 0.0006;
-    const total = platform + tx;
+    const rates = { USD: 1, USDC: 1, SOL: 0, MYXN: 0, ETH: 0 } as const;
+    const calc = calculateFeesWithRates(parsed, "USD", rates);
+    const platform = calc.usd.platformFee;
+    const tx = calc.usd.transactionFee;
+    const total = calc.usd.totalFee;
     const grand = parsed + total;
     return { platform, tx, total, grand };
   }, [parsed]);
