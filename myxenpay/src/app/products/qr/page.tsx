@@ -1,8 +1,232 @@
-export default function QRGenerator() {
-    return (
-        <main className="p-8 space-y-2">
-            <h1 className="text-2xl font-bold">QR Generator</h1>
-            <p className="text-gray-600">Generate payment QR codes</p>
-        </main>
-    )
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import QRCode from "qrcode";
+import Image from "next/image";
+
+type Currency = "USD" | "SOL" | "USDC" | "MYXN";
+type Chain = "solana" | "evm";
+
+function usePrices() {
+    const [prices, setPrices] = useState<Record<string, number>>({ USD: 1, USDC: 1 });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        async function run() {
+            try {
+                setLoading(true);
+                setError(null);
+                const sol = await fetch(
+                    "https://api.coingecko.com/api/v3/simple/price?ids=solana,ethereum&vs_currencies=usd",
+                    { signal: controller.signal }
+                ).then((r) => r.json());
+
+                const myxnId = process.env.NEXT_PUBLIC_CG_ID_MYXN;
+                let myxn = 0;
+                if (myxnId) {
+                    try {
+                        const data = await fetch(
+                            `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(myxnId)}&vs_currencies=usd`,
+                            { signal: controller.signal }
+                        ).then((r) => r.json());
+                        myxn = data?.[myxnId]?.usd ?? 0;
+                    } catch {}
+                } else {
+                    const fallback = Number(process.env.NEXT_PUBLIC_MYXN_PRICE_USD || 0);
+                    myxn = Number.isFinite(fallback) ? fallback : 0;
+                }
+
+                setPrices({ USD: 1, USDC: 1, SOL: sol?.solana?.usd ?? 0, ETH: sol?.ethereum?.usd ?? 0, MYXN: myxn });
+                    } catch {
+                setError("Failed to fetch prices");
+            } finally {
+                setLoading(false);
+            }
+        }
+        run();
+        const t = setInterval(run, 60_000);
+        return () => {
+            controller.abort();
+            clearInterval(t);
+        };
+    }, []);
+
+    return { prices, loading, error };
 }
+
+function usdFrom(amount: number, currency: Currency, prices: Record<string, number>): number {
+    if (!amount || amount <= 0) return 0;
+    if (currency === "USD") return amount;
+    const price = prices[currency] || 0;
+    if (price <= 0) return 0;
+    return amount * price;
+}
+
+export default function QRGenerator() {
+    const { prices, loading } = usePrices();
+    const [chain, setChain] = useState<Chain>("solana");
+    const [currency, setCurrency] = useState<Currency>("USD");
+    const [amount, setAmount] = useState<string>("");
+    const [qrDataUrl, setQrDataUrl] = useState<string>("");
+    const [link, setLink] = useState<string>("");
+    const [copied, setCopied] = useState(false);
+
+    const amountNum = Number(amount) || 0;
+    const amountUSD = useMemo(() => usdFrom(amountNum, currency, prices), [amountNum, currency, prices]);
+    const fees = useMemo(() => {
+        const platform = amountUSD * 0.0001;
+        const tx = amountUSD * 0.0006;
+        const total = platform + tx;
+        return { platform, tx, total };
+    }, [amountUSD]);
+
+    // Build payment link
+    useEffect(() => {
+        async function build() {
+            const label = encodeURIComponent("MyXenPay Payment");
+            const message = encodeURIComponent("Thank you for your purchase");
+
+            if (chain === "solana") {
+                const recipient = process.env.NEXT_PUBLIC_SOLANA_RECIPIENT || "8uR9i2Fi1xJcimZ8hQ2o8W1g2o8tqv7C5L4w7n8v9xYz"; // demo pubkey
+                let url = `solana:${recipient}?label=${label}&message=${message}`;
+                // Convert USD to SOL amount if needed
+                const amountSOL = prices.SOL > 0 ? amountUSD / prices.SOL : 0;
+                if (amountSOL > 0) url += `&amount=${amountSOL.toFixed(6)}`;
+                setLink(url);
+                try {
+                    const dataUrl = await QRCode.toDataURL(url, { width: 320, margin: 2 });
+                    setQrDataUrl(dataUrl);
+                        } catch {
+                    setQrDataUrl("");
+                }
+                return;
+            }
+
+            // EVM EIP-681 native transfer (ETH on specified chain)
+            const recipient = process.env.NEXT_PUBLIC_EVM_RECIPIENT || "0x0000000000000000000000000000000000000000";
+            const chainId = Number(process.env.NEXT_PUBLIC_EVM_CHAIN_ID || 1);
+            const priceETH = prices.ETH || 0;
+            const amountETH = priceETH > 0 ? amountUSD / priceETH : 0;
+            const wei = BigInt(Math.floor(amountETH * 1e18));
+            const valueHex = `0x${wei.toString(16)}`;
+            const url = `ethereum:${recipient}@${chainId}?value=${valueHex}`;
+            setLink(url);
+            try {
+                const dataUrl = await QRCode.toDataURL(url, { width: 320, margin: 2 });
+                setQrDataUrl(dataUrl);
+                    } catch {
+                setQrDataUrl("");
+            }
+        }
+        build();
+    }, [chain, amountUSD, prices]);
+
+    const formatUSD = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 6 }).format(n || 0);
+
+    return (
+        <main className="site-container section">
+            <h1 className="text-2xl font-bold">QR Payment Generator</h1>
+            <p className="text-gray-600 dark:text-gray-400">Create Solana Pay and EVM (EIP-681) payment links with live conversion and fees.</p>
+
+            {/* Chain toggle */}
+            <div className="mt-4 inline-flex overflow-hidden rounded-xl border border-white/20 text-sm dark:border-white/10">
+                <button
+                    className={`px-3 py-1.5 ${chain === "solana" ? "bg-blue-600 text-white" : "bg-transparent text-gray-700 hover:bg-white/10 dark:text-gray-300"}`}
+                    onClick={() => setChain("solana")}
+                >
+                    Solana
+                </button>
+                <button
+                    className={`px-3 py-1.5 ${chain === "evm" ? "bg-blue-600 text-white" : "bg-transparent text-gray-700 hover:bg-white/10 dark:text-gray-300"}`}
+                    onClick={() => setChain("evm")}
+                >
+                    EVM
+                </button>
+            </div>
+
+            {/* Amount input + currency */}
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-xl border border-white/20 bg-white/30 p-4 dark:border-white/10 dark:bg-white/10">
+                    <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Amount</label>
+                    <input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0.00"
+                        className="w-full rounded-lg border border-white/20 bg-transparent px-3 py-2 text-gray-900 outline-none placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 dark:border-white/10 dark:text-gray-100"
+                    />
+                </div>
+                <div className="rounded-xl border border-white/20 bg-white/30 p-4 dark:border-white/10 dark:bg-white/10">
+                    <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Currency</label>
+                    <select
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value as Currency)}
+                        className="w-full rounded-lg border border-white/20 bg-transparent px-3 py-2 text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 dark:border-white/10 dark:text-gray-100"
+                    >
+                        <option value="USD">USD</option>
+                        <option value="SOL">SOL</option>
+                        <option value="USDC">USDC</option>
+                        <option value="MYXN">MYXN</option>
+                    </select>
+                    <p className="mt-2 text-xs text-gray-500">{loading ? "Loading rates…" : `USD est: ${formatUSD(amountUSD)}`}</p>
+                </div>
+                <div className="rounded-xl border border-white/20 bg-white/30 p-4 dark:border-white/10 dark:bg-white/10">
+                    <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">Fees</label>
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div>
+                            <div className="text-gray-600 dark:text-gray-400">Platform</div>
+                            <div className="font-semibold">{formatUSD(fees.platform)}</div>
+                        </div>
+                        <div>
+                            <div className="text-gray-600 dark:text-gray-400">Tx</div>
+                            <div className="font-semibold">{formatUSD(fees.tx)}</div>
+                        </div>
+                        <div>
+                            <div className="text-gray-600 dark:text-gray-400">Total</div>
+                            <div className="font-semibold">{formatUSD(fees.total)}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* QR + Link */}
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="flex items-center justify-center rounded-2xl border border-white/20 bg-white/20 p-6 backdrop-blur dark:border-white/10 dark:bg-white/10">
+                    {qrDataUrl ? (
+                        <Image src={qrDataUrl} alt="Payment QR" width={256} height={256} className="h-64 w-64" />
+                    ) : (
+                        <div className="text-sm text-gray-500">Enter an amount to generate QR</div>
+                    )}
+                </div>
+                <div className="rounded-2xl border border-white/20 bg-white/20 p-6 backdrop-blur dark:border-white/10 dark:bg-white/10">
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Payment Link</div>
+                    <div className="mt-2 break-all rounded-lg border border-white/20 bg-white/30 p-3 text-xs dark:border-white/10 dark:bg-white/10">
+                        {link || ""}
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                        <button
+                            type="button"
+                            disabled={!link}
+                            onClick={() => {
+                                if (!link) return;
+                                navigator.clipboard.writeText(link).then(() => {
+                                    setCopied(true);
+                                    setTimeout(() => setCopied(false), 1500);
+                                });
+                            }}
+                            className={`rounded-lg px-4 py-2 text-sm font-semibold ${link ? "bg-blue-600 text-white hover:bg-blue-500" : "bg-gray-300 text-gray-600 dark:bg-gray-700 dark:text-gray-400"}`}
+                        >
+                            {copied ? "Copied" : "Copy Link"}
+                        </button>
+                    </div>
+                    <p className="mt-3 text-xs text-gray-500">Solana Pay URL for Solana, EIP-681 URL for EVM.</p>
+                </div>
+            </div>
+        </main>
+    );
+}
+
