@@ -75,7 +75,7 @@ export default function Footer() {
             {/* Company Registration */}
             <div className="mt-4 rounded-xl border border-white/20 bg-white/20 p-3 text-sm text-gray-800 backdrop-blur dark:border-white/10 dark:bg-white/10 dark:text-gray-200">
               🏢 <strong>UK Registered Company</strong>
-              <br />Registration Number: °°°°°°
+              <br />Registration Number: Pending
             </div>
 
             {/* Social share */}
@@ -92,11 +92,12 @@ export default function Footer() {
           {/* Verified Badges */}
           <div className="flex flex-col items-start gap-3 md:items-end">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="badge-solana rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: "#9945FF" }}>✅ Verified by Solana</span>
-              <span className="rounded-full bg-gradient-to-r from-[#9945FF] to-[#14F195] px-3 py-1 text-xs font-semibold text-white">⚡ Solana Pay Verified</span>
-              <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">🔒 GDPR Compliant</span>
-              <span className="rounded-full bg-green-500 px-3 py-1 text-xs font-semibold text-white">🔐 SSL Secured</span>
-              <span className="rounded-full bg-[#1a1f71] px-3 py-1 text-xs font-semibold text-white">💳 VISA Verified</span>
+              <span className="rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: "#9945FF" }}>✅ Verified by Solana</span>
+              <span className="rounded-full px-3 py-1 text-xs font-semibold text-white bg-linear-to-r from-[#9945FF] to-[#14F195]">⚡ Solana Pay Verified</span>
+              <span className="rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: "#059669" }}>🔒 GDPR Compliant</span>
+              <span className="rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: "#00d664" }}>🔐 SSL Secured</span>
+              <span className="rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: "#1a1f71" }}>💳 VISA Verified</span>
+              <span className="rounded-full px-3 py-1 text-xs font-semibold text-white" style={{ background: "#dc2626" }}>�️ Secure Payment</span>
             </div>
           </div>
         </div>
@@ -115,10 +116,10 @@ export default function Footer() {
           <div>
             <h4 className="mb-3 text-sm font-semibold text-gray-900 dark:text-gray-100">Resources</h4>
             <ul className="space-y-2">
-              <li><Link href={routes.marketing.fairLaunch} className="opacity-80 transition hover:opacity-100">Whitepaper</Link></li>
+              <li><Link href={routes.developers.docs} className="opacity-80 transition hover:opacity-100">Whitepaper</Link></li>
               <li><Link href={routes.developers.docs} className="opacity-80 transition hover:opacity-100">Documentation</Link></li>
-              <li><Link href={routes.products.qr} className="opacity-80 transition hover:opacity-100">FAQ</Link></li>
-              <li><Link href={routes.developers.examples} className="opacity-80 transition hover:opacity-100">Help Center</Link></li>
+              <li><Link href={routes.developers.docs} className="opacity-80 transition hover:opacity-100">FAQ</Link></li>
+              <li><Link href={routes.contact} className="opacity-80 transition hover:opacity-100">Help Center</Link></li>
               <li><Link href={routes.developers.home} className="opacity-80 transition hover:opacity-100">Blog</Link></li>
             </ul>
           </div>
@@ -127,8 +128,8 @@ export default function Footer() {
             <ul className="space-y-2">
               <li><Link href={routes.about} className="opacity-80 transition hover:opacity-100">About Us</Link></li>
               <li><Link href={routes.contact} className="opacity-80 transition hover:opacity-100">Contact</Link></li>
-              <li><Link href={routes.contact} className="opacity-80 transition hover:opacity-100">Privacy Policy</Link></li>
-              <li><Link href={routes.contact} className="opacity-80 transition hover:opacity-100">Terms of Service</Link></li>
+              <li><Link href={routes.privacy} className="opacity-80 transition hover:opacity-100">Privacy Policy</Link></li>
+              <li><Link href={routes.terms} className="opacity-80 transition hover:opacity-100">Terms of Service</Link></li>
             </ul>
           </div>
           <div>

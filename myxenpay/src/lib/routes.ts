@@ -2,6 +2,8 @@ export const routes = {
   home: "/",
   about: "/about",
   contact: "/contact",
+  privacy: "/privacy",
+  terms: "/terms",
 
   // Core wallet & finance
   wallet: "/wallet",
