@@ -5,9 +5,10 @@ import QRCode from "qrcode";
 import Image from "next/image";
 import { Currency, Rates, getRates, toUSD, calculateFeesWithRates } from "@/lib/fee-calculation";
 type Chain = "solana" | "evm";
+type EvmNetwork = "base" | "polygon" | "bsc";
 
 function useRatesState() {
-    const [rates, setRates] = useState<Rates>({ USD: 1, USDC: 1, SOL: 0, MYXN: 0, ETH: 0 });
+    const [rates, setRates] = useState<Rates>({ USD: 1, USDC: 1, SOL: 0, MYXN: 0, ETH: 0, MATIC: 0, BNB: 0 });
     const [loading, setLoading] = useState(true);
     useEffect(() => {
         let mounted = true;
@@ -35,6 +36,7 @@ export default function QRGenerator() {
     const [qrDataUrl, setQrDataUrl] = useState<string>("");
     const [link, setLink] = useState<string>("");
     const [copied, setCopied] = useState(false);
+    const [evmNetwork, setEvmNetwork] = useState<EvmNetwork>("base");
 
     const amountNum = Number(amount) || 0;
     const amountUSD = useMemo(() => toUSD(amountNum, currency, rates), [amountNum, currency, rates]);
@@ -62,12 +64,13 @@ export default function QRGenerator() {
                 return;
             }
 
-            // EVM EIP-681 native transfer (ETH on specified chain)
+            // EVM EIP-681 native transfer on selected network
             const recipient = process.env.NEXT_PUBLIC_EVM_RECIPIENT || "0x0000000000000000000000000000000000000000";
-            const chainId = Number(process.env.NEXT_PUBLIC_EVM_CHAIN_ID || 1);
-            const priceETH = rates.ETH || 0;
-            const amountETH = priceETH > 0 ? amountUSD / priceETH : 0;
-            const wei = BigInt(Math.floor(amountETH * 1e18));
+            const chainIdMap: Record<EvmNetwork, number> = { base: 8453, polygon: 137, bsc: 56 };
+            const chainId = chainIdMap[evmNetwork];
+            const nativePriceUSD = evmNetwork === "base" ? (rates.ETH || 0) : evmNetwork === "polygon" ? (rates.MATIC || 0) : (rates.BNB || 0);
+            const nativeAmount = nativePriceUSD > 0 ? amountUSD / nativePriceUSD : 0;
+            const wei = BigInt(Math.floor(nativeAmount * 1e18));
             const valueHex = `0x${wei.toString(16)}`;
             const url = `ethereum:${recipient}@${chainId}?value=${valueHex}`;
             setLink(url);
@@ -79,7 +82,7 @@ export default function QRGenerator() {
             }
         }
         build();
-    }, [chain, amountUSD, rates]);
+    }, [chain, amountUSD, rates, evmNetwork]);
 
     const formatUSD = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 6 }).format(n || 0);
 
@@ -103,6 +106,21 @@ export default function QRGenerator() {
                     EVM
                 </button>
             </div>
+
+            {/* EVM network selection (Base, Polygon, BSC) */}
+            {chain === "evm" && (
+                <div className="mt-3 inline-flex overflow-hidden rounded-xl border border-white/20 text-sm dark:border-white/10">
+                    {(["base", "polygon", "bsc"] as EvmNetwork[]).map((n) => (
+                        <button
+                            key={n}
+                            className={`px-3 py-1.5 ${evmNetwork === n ? "bg-indigo-600 text-white" : "bg-transparent text-gray-700 hover:bg-white/10 dark:text-gray-300"}`}
+                            onClick={() => setEvmNetwork(n)}
+                        >
+                            {n === "base" ? "Base" : n === "polygon" ? "Polygon" : "BSC"}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             {/* Amount input + currency */}
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">

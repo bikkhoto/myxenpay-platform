@@ -1,5 +1,5 @@
 import { createConfig, http } from "wagmi";
-import { mainnet } from "wagmi/chains";
+import { polygon, base, bsc } from "wagmi/chains";
 import { injected, walletConnect } from "wagmi/connectors";
 
 // Prefer explicit, env-driven WalletConnect configuration
@@ -20,8 +20,13 @@ const connectors = [
 ];
 
 export const wagmiConfig = createConfig({
-  chains: [mainnet],
-  transports: { [mainnet.id]: http() },
+  // Restrict to supported EVM networks per platform spec
+  chains: [base, polygon, bsc],
+  transports: {
+    [base.id]: http(),
+    [polygon.id]: http(),
+    [bsc.id]: http(),
+  },
   connectors,
 });
 

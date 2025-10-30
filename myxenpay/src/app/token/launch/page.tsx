@@ -23,7 +23,7 @@ export default function TokenLaunchWizard() {
 
     const feePreview = useMemo(() => {
         const amount = 100; // preview base in USD for demonstration
-        return calculateFeesWithRates(amount, "USD", { USD: 1, USDC: 1, SOL: 0, MYXN: 0, ETH: 0 });
+        return calculateFeesWithRates(amount, "USD", { USD: 1, USDC: 1, SOL: 0, MYXN: 0, ETH: 0, MATIC: 0, BNB: 0 });
     }, []);
 
     async function ensureRates() {

@@ -22,7 +22,7 @@ export default function CheckoutWidget() {
 
   // 0.07% total = 0.01% platform + 0.06% transaction (USD)
   const fees = useMemo(() => {
-    const rates = { USD: 1, USDC: 1, SOL: 0, MYXN: 0, ETH: 0 } as const;
+    const rates = { USD: 1, USDC: 1, SOL: 0, MYXN: 0, ETH: 0, MATIC: 0, BNB: 0 } as const;
     const calc = calculateFeesWithRates(parsed, "USD", rates);
     const platform = calc.usd.platformFee;
     const tx = calc.usd.transactionFee;
