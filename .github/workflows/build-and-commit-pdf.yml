@@ -1,0 +1,36 @@
+name: Build and Commit Foundation PDF
+
+on:
+  push:
+    branches: [ foundation-doc ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed for the commit step
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y pandoc wkhtmltopdf
+
+      - name: Generate Foundation Master PDF
+        run: |
+          cd docs
+          pandoc foundation-master.md -o foundation-master.pdf \
+            --from markdown \
+            --pdf-engine=wkhtmltopdf \
+            -V geometry:margin=1in \
+            -V mainfont="Montserrat"
+
+      - name: Commit and push generated PDF
+        run: |
+          git config --global user.name "MyXen Foundation Bot"
+          git config --global user.email "noreply@myxen.org"
+          git add docs/foundation-master.pdf
+          git commit -m "chore: auto-update Foundation Master PDF" || echo "No changes to commit"
+          git push origin foundation-doc
