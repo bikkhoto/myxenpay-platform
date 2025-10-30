@@ -33,4 +33,4 @@ jobs:
           git config --global user.email "noreply@myxen.org"
           git add docs/foundation-master.pdf
           git commit -m "chore: auto-update Foundation Master PDF" || echo "No changes to commit"
-          git push origin foundation-doc
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }} HEAD:${{ github.ref_name }}
