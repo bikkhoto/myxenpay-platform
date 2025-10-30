@@ -1,25 +1,59 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMultiChainWallet } from "@/hooks/use-multi-chain-wallet";
 import { calculateFeesWithRates, getRates, Rates } from "@/lib/fee-calculation";
 
 export default function MerchantDashboard() {
     const wallet = useMultiChainWallet();
-    const [rates, setRates] = useState<Rates>({ USD: 1, USDC: 1, SOL: 0, MYXN: 0, ETH: 0 });
+    const [rates, setRates] = useState<Rates>({ USD: 1, USDC: 1, SOL: 0, MYXN: 0, ETH: 0, MATIC: 0, BNB: 0 });
     useEffect(() => {
         getRates().then(setRates).catch(() => void 0);
     }, []);
 
-    const kpis = useMemo(() => {
-        // Demo static KPIs, you can replace with real data later
-        const today = 12543.87;
-        const orders = 32;
-        const avg = today / Math.max(1, orders);
-        const fees = calculateFeesWithRates(today, "USD", rates).usd.totalFee;
-        return { today, orders, avg, fees };
-    }, [rates]);
+        const [kpis, setKpis] = useState({ today: 0, orders: 0, avg: 0, fees: 0 });
+        const [ordersList, setOrdersList] = useState<Array<{ id: string; customer: string; amount: number; status: string }>>([]);
+        useEffect(() => {
+            const api = process.env.NEXT_PUBLIC_API_URL;
+            async function load() {
+                if (!api) {
+                    // Fallback demo data
+                    const today = 12543.87;
+                    const orders = 32;
+                    const avg = today / Math.max(1, orders);
+                    const fees = calculateFeesWithRates(today, "USD", rates).usd.totalFee;
+                    setKpis({ today, orders, avg, fees });
+                    setOrdersList(Array.from({ length: 5 }, (_, i) => ({ id: `MXN-${1001 + i}`, customer: `Customer ${i + 1}`, amount: 100 + (i + 1) * 12.34, status: "Paid" })));
+                    return;
+                }
+                try {
+                    const [kpiRes, ordersRes] = await Promise.all([
+                        fetch(`${api}/merchant/kpis`).then((r) => r.ok ? r.json() : Promise.reject(new Error("kpis http"))),
+                        fetch(`${api}/merchant/orders?limit=5`).then((r) => r.ok ? r.json() : Promise.reject(new Error("orders http"))),
+                    ]);
+                    const today = Number(kpiRes?.todayVolume ?? 0);
+                    const orders = Number(kpiRes?.orders ?? 0);
+                    const avg = today / Math.max(1, orders);
+                    const fees = calculateFeesWithRates(today, "USD", rates).usd.totalFee;
+                    setKpis({ today, orders, avg, fees });
+                            type ApiOrder = { id?: string; customer?: string; amount?: number | string; status?: string };
+                            const list = Array.isArray(ordersRes)
+                                ? (ordersRes as ApiOrder[]).map((o) => ({ id: o.id ?? "-", customer: o.customer ?? "-", amount: Number(o.amount ?? 0), status: o.status ?? "-" }))
+                        : [];
+                    setOrdersList(list);
+                } catch {
+                    // fallback if API fails
+                    const today = 12543.87;
+                    const orders = 32;
+                    const avg = today / Math.max(1, orders);
+                    const fees = calculateFeesWithRates(today, "USD", rates).usd.totalFee;
+                    setKpis({ today, orders, avg, fees });
+                    setOrdersList(Array.from({ length: 5 }, (_, i) => ({ id: `MXN-${1001 + i}`, customer: `Customer ${i + 1}`, amount: 100 + (i + 1) * 12.34, status: "Paid" })));
+                }
+            }
+            load();
+        }, [rates]);
 
     const fmt = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 2 }).format(n || 0);
 
@@ -61,16 +95,16 @@ export default function MerchantDashboard() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {[1,2,3,4,5].map((i) => (
-                                    <tr key={i} className="border-t border-white/10">
-                                        <td className="px-2 py-2">MXN-{1000+i}</td>
-                                        <td className="px-2 py-2">Customer {i}</td>
-                                        <td className="px-2 py-2">{fmt(100 + i * 12.34)}</td>
-                                        <td className="px-2 py-2">
-                                            <span className="rounded bg-green-500/20 px-2 py-1 text-xs text-green-600">Paid</span>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                {ordersList.map((row) => (
+                                                    <tr key={row.id} className="border-t border-white/10">
+                                                        <td className="px-2 py-2">{row.id}</td>
+                                                        <td className="px-2 py-2">{row.customer}</td>
+                                                        <td className="px-2 py-2">{fmt(row.amount)}</td>
+                                                        <td className="px-2 py-2">
+                                                            <span className="rounded bg-green-500/20 px-2 py-1 text-xs text-green-600">{row.status}</span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
                             </tbody>
                         </table>
                     </div>

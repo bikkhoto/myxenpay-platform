@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MYXN_TOKEN_DISPLAY, TOKEN_DISPLAY_NAME } from "@/config/token";
 import { useCallback, useState } from "react";
 import { routes } from "@/lib/routes";
 
@@ -82,7 +83,7 @@ export default function HeroSection() {
           Global Crypto Payments Made Simple
         </h1>
         <p className="mx-auto mb-10 max-w-2xl text-lg text-gray-700 opacity-80 dark:text-gray-300 md:text-xl">
-          Accept payments anywhere in the world with QR codes, VISA virtual cards, and instant settlements — all on Solana.
+          Accept payments anywhere in the world with QR codes, VISA virtual cards, and instant settlements — powered by {TOKEN_DISPLAY_NAME} on Solana.
         </p>
 
         {/* Social share buttons (glass morphism) */}
@@ -151,7 +152,7 @@ export default function HeroSection() {
             href={routes.developers.home}
             className="btn btn-secondary inline-flex items-center gap-2 rounded-xl border-2 border-blue-600 px-6 py-3 font-semibold text-blue-600 transition hover:-translate-y-0.5 hover:bg-blue-600 hover:text-white"
           >
-            View Demo
+            View {MYXN_TOKEN_DISPLAY} Demo
           </Link>
         </div>
       </div>

@@ -1,3 +1,14 @@
 {
-    "chat.agent.maxRequests": 400
+    "chat.agent.maxRequests": 400,
+    "cSpell.words": [
+        "Keypair",
+        "Metaplex",
+        "myxn",
+        "PANCAKESWAP",
+        "qrcode",
+        "QUICKSWAP",
+        "Solana",
+        "Solflare",
+        "wagmi"
+    ]
 }

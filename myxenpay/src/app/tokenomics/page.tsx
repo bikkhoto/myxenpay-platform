@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { TOKEN_DISPLAY_NAME } from "@/config/token";
 
 type MarketData = {
     priceUsd: number | null;
@@ -142,7 +143,7 @@ export default function TokenomicsPage() {
     return (
         <main className="section site-container">
             <header className="mb-6">
-                <h1 className="text-3xl font-bold">$MYXEN Tokenomics</h1>
+                <h1 className="text-3xl font-bold">{TOKEN_DISPLAY_NAME} Tokenomics</h1>
                 <p className="text-gray-600 dark:text-gray-400">Transparent distribution, sustainable mechanics, and aligned incentives.</p>
             </header>
 

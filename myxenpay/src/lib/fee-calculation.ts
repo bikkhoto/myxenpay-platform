@@ -1,4 +1,6 @@
-export type Currency = "USD" | "USDC" | "SOL" | "MYXN" | "ETH";
+// Currencies used in UI + internal helpers. We include MATIC and BNB
+// to support native conversions for Polygon and BSC in QR generation.
+export type Currency = "USD" | "USDC" | "SOL" | "MYXN" | "ETH" | "MATIC" | "BNB";
 
 export type Rates = Record<Currency, number>; // price in USD per 1 unit of currency
 
@@ -7,7 +9,7 @@ const FEE_TRANSACTION = 0.0006; // 0.06%
 export const FEE_TOTAL = FEE_PLATFORM + FEE_TRANSACTION; // 0.07%
 
 let cachedRates: { rates: Rates; ts: number } | null = null;
-const CACHE_MS = 60_000; // 1 min
+const CACHE_MS = Number(process.env.NEXT_PUBLIC_RATES_CACHE_MS ?? 60_000); // default 1 min, configurable
 
 function now() {
   return Date.now();
@@ -15,17 +17,24 @@ function now() {
 
 function buildFallbackRates(): Rates {
   const myxnFallback = Number(process.env.NEXT_PUBLIC_MYXN_PRICE_USD || 0) || 0;
-  return { USD: 1, USDC: 1, SOL: 0, MYXN: myxnFallback, ETH: 0 };
+  return { USD: 1, USDC: 1, SOL: 0, MYXN: myxnFallback, ETH: 0, MATIC: 0, BNB: 0 };
 }
 
-export async function getRates(force = false): Promise<Rates> {
+// Optional rounding helper for UI display
+export function round6(n: number) {
+  return Math.round(n * 1e6) / 1e6;
+}
+
+// Fetch rates with optional AbortSignal (non-breaking: second param is optional)
+export async function getRates(force = false, signal?: AbortSignal): Promise<Rates> {
   if (!force && cachedRates && now() - cachedRates.ts < CACHE_MS) return cachedRates.rates;
-  const controller = new AbortController();
+  const controller = signal ? null : new AbortController();
+  const sig = signal ?? controller!.signal;
   const fallback = buildFallbackRates();
   try {
     const solEth = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=solana,ethereum&vs_currencies=usd",
-      { signal: controller.signal }
+      "https://api.coingecko.com/api/v3/simple/price?ids=solana,ethereum,polygon-pos,binancecoin&vs_currencies=usd",
+      { signal: sig }
     ).then((r) => r.json());
     const myxnId = process.env.NEXT_PUBLIC_CG_ID_MYXN;
     let myxn = fallback.MYXN;
@@ -33,7 +42,7 @@ export async function getRates(force = false): Promise<Rates> {
       try {
         const d = await fetch(
           `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(myxnId)}&vs_currencies=usd`,
-          { signal: controller.signal }
+          { signal: sig }
         ).then((r) => r.json());
         myxn = d?.[myxnId]?.usd ?? fallback.MYXN;
       } catch {}
@@ -43,6 +52,8 @@ export async function getRates(force = false): Promise<Rates> {
       USDC: 1,
       SOL: solEth?.solana?.usd ?? 0,
       ETH: solEth?.ethereum?.usd ?? 0,
+      MATIC: solEth?.["polygon-pos"]?.usd ?? 0,
+      BNB: solEth?.binancecoin?.usd ?? 0,
       MYXN: myxn,
     };
     cachedRates = { rates, ts: now() };
